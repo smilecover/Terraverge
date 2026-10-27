@@ -1,0 +1,9 @@
+[package]
+name = "terge_winit"
+version.workspace = true   
+edition.workspace = true   
+license.workspace = true   
+
+
+[dependencies]
+winit = "0.30.13"

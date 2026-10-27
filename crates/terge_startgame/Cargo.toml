@@ -1,0 +1,9 @@
+[package]
+name = "terge_startgame"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+terge_client.workspace = true
+

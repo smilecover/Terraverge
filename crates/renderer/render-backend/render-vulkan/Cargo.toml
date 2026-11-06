@@ -1,0 +1,14 @@
+[package]
+name = "render-vulkan"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow = "1"
+ash = "0.38.0"
+ash-window = "0.13.0"
+raw-window-handle = "0.6"
+
+[build-dependencies]
+naga = { version = "30.0.1", features = ["wgsl-in", "spv-out"] }

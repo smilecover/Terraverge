@@ -1,7 +1,8 @@
 [package]
-name = "terge_server"
+name = "renderer"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
+render-vulkan = { path = "render-backend/render-vulkan" }

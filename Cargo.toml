@@ -1,7 +1,9 @@
 [workspace]
 resolver = "3"
 exclude = []
-members = ["crates/*"]
+members = ["crates/*", "crates/renderer/render-backend/*"]
+
+default-members = ["crates/game"]
 
 [workspace.package]
 version = "0.0.1"
@@ -9,9 +11,5 @@ edition = "2024"
 license = "Apache-2.0"
 
 [workspace.dependencies]
-#中间库
-terge_winit = { path = "crates/terge_winit" }
 
 
-#主要库
-terge_client = {path = "crates/terge_client"}

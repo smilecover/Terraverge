@@ -1,8 +1,9 @@
 [package]
-name = "terge_client"
+name = "game"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 
 [dependencies]
-terge_winit.workspace = true
+renderer = { path = "../renderer" }
+winit = "0.30.13"

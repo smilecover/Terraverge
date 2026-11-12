@@ -1,7 +1,7 @@
 [workspace]
 resolver = "3"
 exclude = []
-members = ["crates/*", "crates/renderer/render-backend/*"]
+members = ["crates/*","crates/render/render_backend/*"]
 
 default-members = ["crates/game"]
 
@@ -11,5 +11,5 @@ edition = "2024"
 license = "Apache-2.0"
 
 [workspace.dependencies]
-
+winit = "0.30.13"
 

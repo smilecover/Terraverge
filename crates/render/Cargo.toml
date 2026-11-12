@@ -1,0 +1,8 @@
+[package]
+name = "render"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+ren_vulkan = {path = "./render_backend/ren_vulkan"}

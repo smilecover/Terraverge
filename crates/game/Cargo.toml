@@ -5,5 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-renderer = { path = "../renderer" }
-winit = "0.30.13"
+
+#自定义模块
+render = { path = "../render" }
+window = { path = "../window" }

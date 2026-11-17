@@ -8,4 +8,5 @@ license.workspace = true
 
 #自定义模块
 render = { path = "../render" }
+shader-slang = "0.1.0"
 window = { path = "../window" }

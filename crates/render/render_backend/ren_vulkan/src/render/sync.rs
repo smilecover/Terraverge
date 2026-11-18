@@ -24,6 +24,10 @@ pub(super) struct FrameSync {
     render_finished: Vec<vk::Semaphore>,
     /// 每帧一个栅栏，CPU 通过它知道这一帧的 GPU 工作已经结束。
     in_flight_fences: Vec<vk::Fence>,
+    /// 计算提交完成时发出信号，图形提交在顶点输入阶段等待它。
+    compute_finished: Vec<vk::Semaphore>,
+    /// 每帧一个计算栅栏，保证上一帧的计算不再读写粒子缓冲。
+    compute_in_flight_fences: Vec<vk::Fence>,
     /// 按交换链图像索引记录正在使用该图像的栅栏；`null` 表示当前空闲。
     images_in_flight: Vec<vk::Fence>,
     pub(super) current_frame: usize,
@@ -38,6 +42,8 @@ impl FrameSync {
             image_available: Vec::with_capacity(MAX_FRAMES_IN_FLIGHT),
             render_finished: Vec::with_capacity(image_count),
             in_flight_fences: Vec::with_capacity(MAX_FRAMES_IN_FLIGHT),
+            compute_finished: Vec::with_capacity(MAX_FRAMES_IN_FLIGHT),
+            compute_in_flight_fences: Vec::with_capacity(MAX_FRAMES_IN_FLIGHT),
             images_in_flight: vec![vk::Fence::null(); image_count],
             current_frame: 0,
         };
@@ -64,6 +70,24 @@ impl FrameSync {
                 }
             };
             sync.in_flight_fences.push(fence);
+
+            let compute_finished = match unsafe { device.create_semaphore(&semaphore_info, None) } {
+                Ok(semaphore) => semaphore,
+                Err(err) => {
+                    sync.destroy(device);
+                    return Err(err.into());
+                }
+            };
+            sync.compute_finished.push(compute_finished);
+
+            let compute_fence = match unsafe { device.create_fence(&fence_info, None) } {
+                Ok(fence) => fence,
+                Err(err) => {
+                    sync.destroy(device);
+                    return Err(err.into());
+                }
+            };
+            sync.compute_in_flight_fences.push(compute_fence);
         }
 
         sync.render_finished = match create_semaphores(device, image_count) {
@@ -110,6 +134,15 @@ impl FrameSync {
         self.in_flight_fences[frame]
     }
 
+    /// 计算提交发出信号、图形提交等待的信号量（按帧）。
+    pub(super) fn compute_finished(&self, frame: usize) -> vk::Semaphore {
+        self.compute_finished[frame]
+    }
+
+    pub(super) fn compute_in_flight_fence(&self, frame: usize) -> vk::Fence {
+        self.compute_in_flight_fences[frame]
+    }
+
     pub(super) fn images_in_flight(&self, image_index: usize) -> vk::Fence {
         self.images_in_flight[image_index]
     }
@@ -124,10 +157,19 @@ impl FrameSync {
 
     pub(super) fn destroy(&self, device: &ash::Device) {
         unsafe {
-            for &semaphore in self.image_available.iter().chain(&self.render_finished) {
+            for &semaphore in self
+                .image_available
+                .iter()
+                .chain(&self.render_finished)
+                .chain(&self.compute_finished)
+            {
                 device.destroy_semaphore(semaphore, None);
             }
-            for &fence in &self.in_flight_fences {
+            for &fence in self
+                .in_flight_fences
+                .iter()
+                .chain(&self.compute_in_flight_fences)
+            {
                 device.destroy_fence(fence, None);
             }
         }

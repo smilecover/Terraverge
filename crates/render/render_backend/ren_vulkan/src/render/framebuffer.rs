@@ -1,23 +1,28 @@
-//! 帧缓冲：把一张交换链图像视图绑定到渲染通道的附件上。
+//! 帧缓冲：把 MSAA 颜色视图、深度视图和交换链图像视图绑定到渲染通道的附件上。
 //!
-//! 对应教程的「Framebuffers」章节。每张交换链图像都需要一个帧缓冲，
-//! 绘制时按 `vkAcquireNextImageKHR` 返回的图像索引选择对应的那一个。
+//! 对应教程的「Framebuffers」「Depth buffering」「Multisampling」章节。
+//! 每张交换链图像都需要一个帧缓冲，绘制时按 `vkAcquireNextImageKHR`
+//! 返回的图像索引选择对应的那一个。
 
 use ash::vk;
 use std::error::Error;
 
 /// 为每张交换链图像创建帧缓冲（教程的 `createFramebuffers`）。
+/// 附件顺序必须与渲染通道一致：MSAA 颜色、深度、resolve 目标（交换链图像）。
 pub(super) fn create_framebuffers(
     device: &ash::Device,
     render_pass: vk::RenderPass,
+    color_view: vk::ImageView,
+    depth_view: vk::ImageView,
     image_views: &[vk::ImageView],
     extent: vk::Extent2D,
 ) -> Result<Vec<vk::Framebuffer>, Box<dyn Error + Send + Sync>> {
     let mut framebuffers = Vec::with_capacity(image_views.len());
 
     for &image_view in image_views {
-        // 渲染通道只有一个颜色附件，直接绑定这张图像的视图。
-        let attachments = [image_view];
+        // 前两个附件是所有帧共享的 MSAA 颜色/深度视图，
+        // 第三个附件是这张交换链图像，作为 resolve 目标。
+        let attachments = [color_view, depth_view, image_view];
         let create_info = vk::FramebufferCreateInfo::default()
             .render_pass(render_pass)
             .attachments(&attachments)

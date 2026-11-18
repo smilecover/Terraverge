@@ -10,24 +10,72 @@ use shader_slang::{
 use std::error::Error;
 use std::path::Path;
 
-/// 顶点/片元入口点，必须与 `simple_shader.slang` 里的 `[shader(...)]` 函数名一致。
+/// 模型着色器的顶点/片元入口点，必须与 `simple_shader.slang` 里的函数名一致。
 pub const VERTEX_ENTRY_POINT: &str = "vs_main";
 pub const FRAGMENT_ENTRY_POINT: &str = "fs_main";
 
-/// 编译结果：SPIR-V 的 32 位字数组，可直接传给 `vkCreateShaderModule`。
+/// 粒子着色器入口点，必须与 `particles.slang` 里的函数名一致。
+pub const PARTICLE_VERTEX_ENTRY_POINT: &str = "vs_main";
+pub const PARTICLE_FRAGMENT_ENTRY_POINT: &str = "fs_main";
+pub const PARTICLE_COMPUTE_ENTRY_POINT: &str = "cs_main";
+
+/// 模型着色器的编译结果。
 pub struct CompiledShader {
     pub vertex: Vec<u32>,
     pub fragment: Vec<u32>,
 }
 
-/// 把 `path` 指向的 Slang 文件分别按顶点/片元入口点编译成 SPIR-V。
+/// 粒子系统的编译结果：绘制用的顶点/片元 + 更新粒子的计算着色器。
+pub struct CompiledParticleShaders {
+    pub vertex: Vec<u32>,
+    pub fragment: Vec<u32>,
+    pub compute: Vec<u32>,
+}
+
+/// 把 `path` 指向的模型 Slang 文件按顶点/片元入口点编译成 SPIR-V。
 pub fn compile(path: &Path) -> Result<CompiledShader, Box<dyn Error + Send + Sync>> {
+    let mut codes = compile_file(path, &[VERTEX_ENTRY_POINT, FRAGMENT_ENTRY_POINT])?;
+    let fragment = codes.pop().expect("两个入口点都已编译");
+    let vertex = codes.pop().expect("两个入口点都已编译");
+    Ok(CompiledShader { vertex, fragment })
+}
+
+/// 把粒子 Slang 文件按顶点/片元/计算入口点分别编译成 SPIR-V。
+pub fn compile_particles(
+    path: &Path,
+) -> Result<CompiledParticleShaders, Box<dyn Error + Send + Sync>> {
+    let mut codes = compile_file(
+        path,
+        &[
+            PARTICLE_VERTEX_ENTRY_POINT,
+            PARTICLE_FRAGMENT_ENTRY_POINT,
+            PARTICLE_COMPUTE_ENTRY_POINT,
+        ],
+    )?;
+    let compute = codes.pop().expect("三个入口点都已编译");
+    let fragment = codes.pop().expect("三个入口点都已编译");
+    let vertex = codes.pop().expect("三个入口点都已编译");
+    Ok(CompiledParticleShaders {
+        vertex,
+        fragment,
+        compute,
+    })
+}
+
+/// 打开一个 Slang 会话，按给定入口点列表编译同一份文件。
+fn compile_file(
+    path: &Path,
+    entry_points: &[&str],
+) -> Result<Vec<Vec<u32>>, Box<dyn Error + Send + Sync>> {
     // 全局会话持有 Slang 编译器实例；会话保存目标格式、搜索路径等选项。
     let global_session = GlobalSession::new().ok_or("初始化 Slang 全局会话失败")?;
 
     // 默认情况下 Slang 会把 SPIR-V 入口点改名为 `main`；
-    // 打开这个选项后保留源文件里的 `vs_main` / `fs_main`，管线阶段才能按名字找到它们。
-    let options = shader_slang::CompilerOptions::default().vulkan_use_entry_point_name(true);
+    // 打开这个选项后保留源文件里的入口点名称，管线阶段才能按名字找到它们。
+    // 矩阵按列主序解释，与 glam 的 Mat4 内存布局保持一致。
+    let options = shader_slang::CompilerOptions::default()
+        .vulkan_use_entry_point_name(true)
+        .matrix_layout_column(true);
 
     let target = TargetDesc::default()
         .format(CompileTarget::Spirv)
@@ -43,11 +91,10 @@ pub fn compile(path: &Path) -> Result<CompiledShader, Box<dyn Error + Send + Syn
     let path = path.to_str().ok_or("着色器路径包含非 UTF-8 字符")?;
     let module = session.load_module(path)?;
 
-    // 同一个文件里有两个入口点：各自与模块组合、链接后取自己的 SPIR-V。
-    let vertex = compile_entry_point(&session, &module, VERTEX_ENTRY_POINT)?;
-    let fragment = compile_entry_point(&session, &module, FRAGMENT_ENTRY_POINT)?;
-
-    Ok(CompiledShader { vertex, fragment })
+    entry_points
+        .iter()
+        .map(|name| compile_entry_point(&session, &module, name))
+        .collect()
 }
 
 fn compile_entry_point(

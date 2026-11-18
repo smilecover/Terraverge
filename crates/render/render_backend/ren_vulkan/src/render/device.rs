@@ -71,7 +71,13 @@ fn is_device_suitable(
 
     // 交换链支持不能为空：至少要有一种格式和一种呈现模式。
     let support = query_swapchain_support(device, surface_loader, surface)?;
-    Ok(!support.formats.is_empty() && !support.present_modes.is_empty())
+    if support.formats.is_empty() || support.present_modes.is_empty() {
+        return Ok(false);
+    }
+
+    // 采样器各向异性过滤在 mipmap 章节使用，设备必须支持。
+    let features = unsafe { instance.get_physical_device_features(device) };
+    Ok(features.sampler_anisotropy == vk::TRUE)
 }
 
 /// 逻辑设备及其队列。`graphics_family` 在创建命令池等按队列族归属的对象时还要用到。
@@ -111,8 +117,8 @@ pub(super) fn create_logical_device(
         })
         .collect();
 
-    // 目前不需要任何特殊功能，全部保持默认（VK_FALSE）。
-    let device_features = vk::PhysicalDeviceFeatures::default();
+    // 采样器需要各向异性过滤（mipmap 章节启用）。
+    let device_features = vk::PhysicalDeviceFeatures::default().sampler_anisotropy(true);
 
     // 设备级扩展：交换链是必需的（教程的 deviceExtensions）。
     // 某些移植层/驱动（MoltenVK、部分校验层模拟的设备）还会报告

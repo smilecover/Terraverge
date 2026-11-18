@@ -7,6 +7,10 @@ license.workspace = true
 [dependencies]
 
 #自定义模块
+base = { path = "../base" }
 render = { path = "../render" }
 shader-slang = "0.1.0"
 window = { path = "../window" }
+
+# 只启用 PNG 解码，避免拉起不需要的图片格式依赖。
+image = { version = "0.25", default-features = false, features = ["png"] }

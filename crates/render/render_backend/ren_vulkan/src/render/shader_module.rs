@@ -11,15 +11,42 @@ use std::ffi::CString;
 ///
 /// `code` 是 SPIR-V 的 32 位字数组（小端），可以直接传给 `vkCreateShaderModule`；
 /// `entry_point` 必须与 SPIR-V 里的 `OpEntryPoint` 名称一致。
+#[derive(Clone, Copy)]
 pub struct ShaderStage<'a> {
     pub code: &'a [u32],
     pub entry_point: &'a str,
 }
 
 /// 创建图形管线所需的顶点/片元着色器。
+#[derive(Clone, Copy)]
 pub struct ShaderProgram<'a> {
     pub vertex: ShaderStage<'a>,
     pub fragment: ShaderStage<'a>,
+}
+
+/// 粒子系统的三套着色器：点精灵的顶点/片元，以及更新粒子的计算着色器。
+#[derive(Clone, Copy)]
+pub struct ParticleShaders<'a> {
+    pub vertex: ShaderStage<'a>,
+    pub fragment: ShaderStage<'a>,
+    pub compute: ShaderStage<'a>,
+}
+
+impl ParticleShaders<'_> {
+    /// 取出粒子绘制用的顶点/片元程序。
+    pub fn graphics_program(&self) -> ShaderProgram<'_> {
+        ShaderProgram {
+            vertex: self.vertex,
+            fragment: self.fragment,
+        }
+    }
+}
+
+/// 一次渲染需要的全部着色器：模型管线 + 粒子系统。
+#[derive(Clone, Copy)]
+pub struct SceneShaders<'a> {
+    pub model: ShaderProgram<'a>,
+    pub particles: ParticleShaders<'a>,
 }
 
 /// 顶点/片元着色器模块。入口点名称也一并持有，
@@ -82,7 +109,7 @@ impl ShaderModules {
 }
 
 /// 创建单个着色器模块（教程的 `createShaderModule`）。
-fn create_shader_module(
+pub(super) fn create_shader_module(
     device: &ash::Device,
     code: &[u32],
 ) -> Result<vk::ShaderModule, vk::Result> {

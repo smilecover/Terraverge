@@ -20,13 +20,13 @@ VK_LAYER_KHRONOS_synchronization2: 为旧驱动模拟 VK_KHR_synchronization2。
 const CANDIDATE_LAYERS: &[&CStr] = &[
     c"VK_LAYER_KHRONOS_validation",
     // c"VK_LAYER_LUNARG_api_dump",
-    c"VK_LAYER_LUNARG_crash_diagnostic",
-    c"VK_LAYER_LUNARG_gfxreconstruct",
-    c"VK_LAYER_LUNARG_monitor",
-    c"VK_LAYER_LUNARG_screenshot",
-    c"VK_LAYER_KHRONOS_profiles",
-    c"VK_LAYER_KHRONOS_shader_object",
-    c"VK_LAYER_KHRONOS_synchronization2",
+    // c"VK_LAYER_LUNARG_crash_diagnostic",
+    // c"VK_LAYER_LUNARG_gfxreconstruct",
+    // c"VK_LAYER_LUNARG_monitor",
+    // c"VK_LAYER_LUNARG_screenshot",
+    // c"VK_LAYER_KHRONOS_profiles",
+    // c"VK_LAYER_KHRONOS_shader_object",
+    // c"VK_LAYER_KHRONOS_synchronization2",
 ];
 
 /// 调试信息等级（纯数字，越大越啰嗦）：

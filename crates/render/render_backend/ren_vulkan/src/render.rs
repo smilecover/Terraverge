@@ -75,7 +75,7 @@ use self::texture::Texture;
 use self::uniform_buffer::UniformBuffers;
 
 pub use self::shader_module::{ParticleShaders, SceneShaders, ShaderProgram, ShaderStage};
-pub use self::texture::TextureData;
+pub use self::texture::{TextureData, TextureFilter};
 pub use self::uniform_buffer::SceneUniforms;
 pub use self::vertex::{MeshData, Vertex};
 
@@ -115,6 +115,8 @@ pub struct Render {
     window_height: u32,
     /// 窗口尺寸变化后由绘制循环触发交换链重建。
     framebuffer_resized: bool,
+    /// 是否绘制计算着色器生成的示例粒子。Minecraft 客户端不需要它们。
+    particles_enabled: bool,
     #[cfg(debug_assertions)]
     debug_utils: Option<ash::ext::debug_utils::Instance>,
     #[cfg(debug_assertions)]
@@ -710,12 +712,18 @@ impl Render {
             window_width: width,
             window_height: height,
             framebuffer_resized: false,
+            particles_enabled: true,
             #[cfg(debug_assertions)]
             debug_utils: Some(debug_utils),
             #[cfg(debug_assertions)]
             debug_messenger,
         };
         Ok(render)
+    }
+
+    /// 控制示例粒子系统的绘制。计算管线仍会运行，只是不提交粒子的点精灵绘制。
+    pub fn set_particles_enabled(&mut self, enabled: bool) {
+        self.particles_enabled = enabled;
     }
 
     /// 窗口尺寸变化时记录新尺寸，实际重建放在下一次绘制，避免连续 resize 时反复重建。
@@ -837,7 +845,11 @@ impl Render {
                 geometry: &self.geometry,
                 particle_pipeline: &self.particle_pipeline,
                 particle_buffer: self.compute.particle_buffer(frame),
-                particle_count: PARTICLE_COUNT as u32,
+                particle_count: if self.particles_enabled {
+                    PARTICLE_COUNT as u32
+                } else {
+                    0
+                },
             };
             record_command_buffer(
                 &self.device,

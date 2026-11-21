@@ -102,11 +102,11 @@ pub(super) fn record_command_buffer(
     unsafe { device.begin_command_buffer(command_buffer, &begin_info)? };
 
     // 渲染通道的两个 loadOp 都是 CLEAR：
-    // 颜色清成黑色，深度清成 1.0（Vulkan 中 1.0 是最远）。
+    // 颜色清成 Minecraft 默认天空色，深度清成 1.0（Vulkan 中 1.0 是最远）。
     let clear_values = [
         vk::ClearValue {
             color: vk::ClearColorValue {
-                float32: [0.0, 0.0, 0.0, 1.0],
+                float32: [0.470_6, 0.654_9, 1.0, 1.0],
             },
         },
         vk::ClearValue {

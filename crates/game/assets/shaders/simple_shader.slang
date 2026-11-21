@@ -61,6 +61,7 @@ VertexOutput vs_main(VertexInput input)
 [shader("fragment")]
 float4 fs_main(VertexOutput input) : SV_Target
 {
-    // 教程的 outColor = texture(texSampler, fragTexCoord)。
-    return tex.Sample(texSampler, input.texCoord);
+    // 方块网格把“面向明暗 × 生物群系着色”预先乘进顶点色，
+    // 图集只负责纹理本身。
+    return tex.Sample(texSampler, input.texCoord) * float4(input.color, 1.0);
 }

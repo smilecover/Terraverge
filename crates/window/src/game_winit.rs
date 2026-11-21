@@ -3,8 +3,9 @@ use crate::context::Context;
 use crate::window_config::WindowConfig;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
-use winit::event::WindowEvent as WinitWindowEvent;
+use winit::event::{DeviceEvent, DeviceId, WindowEvent as WinitWindowEvent};
 use winit::event_loop::ActiveEventLoop;
+use winit::keyboard::PhysicalKey;
 use winit::window::{Window, WindowId};
 
 pub(crate) struct Runner<A> {
@@ -62,6 +63,26 @@ impl<A: App> ApplicationHandler for Runner<A> {
             .window_event(&Context::new(event_loop, window), event);
     }
 
+    fn device_event(
+        &mut self,
+        event_loop: &ActiveEventLoop,
+        _device_id: DeviceId,
+        event: DeviceEvent,
+    ) {
+        let Some(window) = self.window.as_ref() else {
+            return;
+        };
+        if let DeviceEvent::MouseMotion { delta } = event {
+            self.app.window_event(
+                &Context::new(event_loop, window),
+                WindowEvent::MouseMotion {
+                    delta_x: delta.0,
+                    delta_y: delta.1,
+                },
+            );
+        }
+    }
+
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         if let Some(window) = self.window.as_ref() {
             self.app.about_to_wait(&Context::new(event_loop, window));
@@ -90,6 +111,20 @@ fn translate(event: &WinitWindowEvent) -> Option<WindowEvent> {
                 scale_factor: *scale_factor,
             }
         }
+        WinitWindowEvent::KeyboardInput { event, .. } => {
+            let PhysicalKey::Code(key) = event.physical_key else {
+                return None;
+            };
+            WindowEvent::KeyboardInput {
+                key,
+                state: event.state,
+                repeat: event.repeat,
+            }
+        }
+        WinitWindowEvent::MouseInput { state, button, .. } => WindowEvent::MouseButton {
+            button: *button,
+            state: *state,
+        },
         _ => return None,
     })
 }

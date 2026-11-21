@@ -1,0 +1,10 @@
+[package]
+name = "minecraft"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+description = "Minecraft 26.3 client 的 Rust 一比一移植"
+
+[dependencies]
+# 资源包里的 PNG 解码复用工作区已有的 image（只启用 PNG）。
+image = { version = "0.25", default-features = false, features = ["png"] }

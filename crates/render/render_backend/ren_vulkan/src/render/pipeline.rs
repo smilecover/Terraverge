@@ -80,14 +80,17 @@ pub(super) fn create_graphics_pipeline(
         .viewport_count(1)
         .scissor_count(1);
 
-    // 光栅化：填充三角形，剔除背面。经过相机与 Vulkan 的 Y 翻转后，
-    // 四边形在屏幕上是逆时针绕序，因此正面定义为 COUNTER_CLOCKWISE。
+    // 光栅化：填充三角形。
+    //
+    // 方块网格在 CPU 侧已经剔除了不可见面，这里的背面剔除只会影响
+    // “从内部看”的面。移植初期关闭背面剔除，避免顶点绕序与 Vulkan
+    // 正面定义不一致时整片地形消失；后续用渲染测试固定绕序后再开启 BACK。
     let rasterization = vk::PipelineRasterizationStateCreateInfo::default()
         .depth_clamp_enable(false)
         .rasterizer_discard_enable(false)
         .polygon_mode(vk::PolygonMode::FILL)
         .line_width(1.0)
-        .cull_mode(vk::CullModeFlags::BACK)
+        .cull_mode(vk::CullModeFlags::NONE)
         .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
         .depth_bias_enable(false);
 

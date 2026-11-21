@@ -15,12 +15,22 @@ use super::command_buffer::submit_one_time;
 /// 纹理格式：每通道 8 位、带 sRGB 转换，与游戏层统一使用的 RGBA8 对应。
 const TEXTURE_FORMAT: vk::Format = vk::Format::R8G8B8A8_SRGB;
 
+/// 纹理采样过滤方式。Minecraft 的方块图集需要最近邻采样。
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum TextureFilter {
+    Nearest,
+    Linear,
+}
+
 /// 游戏层传入的 RGBA8 像素数据。
 pub struct TextureData<'a> {
     pub width: u32,
     pub height: u32,
     /// 紧凑排列，每像素 4 字节：R、G、B、A。
     pub pixels: &'a [u8],
+    pub filter: TextureFilter,
+    /// 是否生成完整 mip 链。像素风图集通常关闭，避免跨贴图渗色。
+    pub generate_mipmaps: bool,
 }
 
 /// 一张上传完成的纹理：图像、内存、视图和采样器。
@@ -55,17 +65,23 @@ impl Texture {
             .into());
         }
 
-        let mip_levels = mip_level_count(data.width, data.height);
+        let mip_levels = if data.generate_mipmaps {
+            mip_level_count(data.width, data.height)
+        } else {
+            1
+        };
 
         // vkCmdBlitImage 的线性缩放在部分格式上不可用，先确认该格式支持。
-        let format_properties = unsafe {
-            instance.get_physical_device_format_properties(physical_device, TEXTURE_FORMAT)
-        };
-        if !format_properties
-            .optimal_tiling_features
-            .contains(vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR)
-        {
-            return Err("纹理格式不支持线性过滤，无法生成 mipmap".into());
+        if data.generate_mipmaps {
+            let format_properties = unsafe {
+                instance.get_physical_device_format_properties(physical_device, TEXTURE_FORMAT)
+            };
+            if !format_properties
+                .optimal_tiling_features
+                .contains(vk::FormatFeatureFlags::SAMPLED_IMAGE_FILTER_LINEAR)
+            {
+                return Err("纹理格式不支持线性过滤，无法生成 mipmap".into());
+            }
         }
 
         let device_properties = unsafe { instance.get_physical_device_properties(physical_device) };
@@ -97,6 +113,7 @@ impl Texture {
             image,
             data.width,
             data.height,
+            mip_levels,
         ) {
             staging.destroy(device);
             destroy_image(device, image, memory);
@@ -112,7 +129,7 @@ impl Texture {
             }
         };
 
-        let sampler = match create_sampler(device, max_anisotropy, mip_levels) {
+        let sampler = match create_sampler(device, max_anisotropy, mip_levels, data.filter) {
             Ok(sampler) => sampler,
             Err(err) => {
                 unsafe { device.destroy_image_view(view, None) };
@@ -227,9 +244,8 @@ fn upload_image(
     image: vk::Image,
     width: u32,
     height: u32,
+    mip_levels: u32,
 ) -> Result<(), Box<dyn Error + Send + Sync>> {
-    let mip_levels = mip_level_count(width, height);
-
     submit_one_time(
         device,
         command_pool,
@@ -483,16 +499,31 @@ fn create_sampler(
     device: &ash::Device,
     max_anisotropy: f32,
     mip_levels: u32,
+    filter: TextureFilter,
 ) -> Result<vk::Sampler, vk::Result> {
+    let vk_filter = match filter {
+        TextureFilter::Nearest => vk::Filter::NEAREST,
+        TextureFilter::Linear => vk::Filter::LINEAR,
+    };
+    let mipmap_mode = match filter {
+        TextureFilter::Nearest => vk::SamplerMipmapMode::NEAREST,
+        TextureFilter::Linear => vk::SamplerMipmapMode::LINEAR,
+    };
     let create_info = vk::SamplerCreateInfo::default()
-        .mag_filter(vk::Filter::LINEAR)
-        .min_filter(vk::Filter::LINEAR)
-        .mipmap_mode(vk::SamplerMipmapMode::LINEAR)
-        .address_mode_u(vk::SamplerAddressMode::REPEAT)
-        .address_mode_v(vk::SamplerAddressMode::REPEAT)
-        .address_mode_w(vk::SamplerAddressMode::REPEAT)
-        .anisotropy_enable(true)
-        .max_anisotropy(max_anisotropy)
+        .mag_filter(vk_filter)
+        .min_filter(vk_filter)
+        .mipmap_mode(mipmap_mode)
+        // 图集坐标恰好落在边缘时应夹取，而不是循环到另一张贴图。
+        .address_mode_u(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        .address_mode_v(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        .address_mode_w(vk::SamplerAddressMode::CLAMP_TO_EDGE)
+        // 没有 mip 链时各向异性过滤没有意义。
+        .anisotropy_enable(mip_levels > 1 && filter == TextureFilter::Linear)
+        .max_anisotropy(if mip_levels > 1 {
+            max_anisotropy.max(1.0)
+        } else {
+            1.0
+        })
         .compare_enable(false)
         .compare_op(vk::CompareOp::ALWAYS)
         .border_color(vk::BorderColor::INT_OPAQUE_BLACK)

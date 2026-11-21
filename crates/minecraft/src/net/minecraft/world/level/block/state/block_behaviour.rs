@@ -22,6 +22,10 @@ pub struct Properties {
     pub(crate) replaceable: bool,
     pub(crate) no_collision: bool,
     pub(crate) is_air: bool,
+    /// 是否拥有“完整方块遮挡形状”；对应 `BlockState.isSolidRender()`。
+    pub(crate) can_occlude: bool,
+    /// 相邻同种方块是否跳过渲染（玻璃类）。
+    pub(crate) skip_rendering_same_block: bool,
     pub(crate) state_properties: Vec<Property>,
 }
 
@@ -38,6 +42,8 @@ impl Properties {
             replaceable: false,
             no_collision: false,
             is_air: false,
+            can_occlude: true,
+            skip_rendering_same_block: false,
             state_properties: Vec::new(),
         }
     }
@@ -76,6 +82,19 @@ impl Properties {
 
     pub fn no_collision(mut self) -> Self {
         self.no_collision = true;
+        self.can_occlude = false;
+        self
+    }
+
+    /// 对应 `noOcclusion()`：不参与遮挡剔除（玻璃、树叶等）。
+    pub fn no_occlusion(mut self) -> Self {
+        self.can_occlude = false;
+        self
+    }
+
+    /// 对应 `HalfTransparentBlock.skipRendering`：相邻同种方块时跳过面。
+    pub fn skip_rendering_same_block(mut self) -> Self {
+        self.skip_rendering_same_block = true;
         self
     }
 
@@ -154,6 +173,14 @@ impl Properties {
 
     pub fn is_air(&self) -> bool {
         self.is_air
+    }
+
+    pub fn can_occlude(&self) -> bool {
+        self.can_occlude
+    }
+
+    pub fn skips_rendering_same_block(&self) -> bool {
+        self.skip_rendering_same_block
     }
 
     pub fn get_state_properties(&self) -> &[Property] {

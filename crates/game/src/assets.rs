@@ -5,7 +5,7 @@
 
 use minecraft::net::minecraft::client::multiplayer::ClientLevel;
 use minecraft::net::minecraft::client::renderer::chunk::{RenderMesh, SectionCompiler};
-use minecraft::net::minecraft::client::renderer::texture::SpriteLoader;
+use minecraft::net::minecraft::client::renderer::texture::{SpriteLoader, TextureAtlas};
 use minecraft::net::minecraft::client::resources::language::LanguageManager;
 use minecraft::net::minecraft::client::resources::model::BlockModelSet;
 use minecraft::net::minecraft::server::packs::resources::ResourceManager;
@@ -25,14 +25,11 @@ const WORLD_RADIUS: i32 = 4;
 pub struct Assets {
     vertices: Vec<Vertex>,
     indices: Vec<u32>,
-    texture_width: u32,
-    texture_height: u32,
-    texture_pixels: Vec<u8>,
+    atlas: TextureAtlas,
     level: ClientLevel,
     spawn_position: Vec3,
-    /// 保留模型与语言供后续区块重建/UI 使用。
-    #[allow(dead_code)]
     models: BlockModelSet,
+    /// 语言表保留给后续 UI；当前尚未绘制文字。
     #[allow(dead_code)]
     language: LanguageManager,
     model_shader: CompiledShader,
@@ -81,9 +78,7 @@ impl Assets {
         Ok(Self {
             vertices,
             indices,
-            texture_width: atlas.get_width(),
-            texture_height: atlas.get_height(),
-            texture_pixels: atlas.get_pixels().to_vec(),
+            atlas,
             level,
             spawn_position,
             models,
@@ -91,6 +86,23 @@ impl Assets {
             model_shader,
             particle_shader,
         })
+    }
+
+    /// 方块发生变化后重新编译整个世界网格。M0/M1 仍是全量重建；
+    /// M2 会改为按区块脏标记与异步构建。
+    pub fn rebuild_mesh(&mut self) {
+        let mesh = SectionCompiler::compile(&self.level, &self.models, &self.atlas);
+        let (vertices, indices) = convert_mesh(mesh);
+        self.vertices = vertices;
+        self.indices = indices;
+    }
+
+    pub fn level_mut(&mut self) -> &mut ClientLevel {
+        &mut self.level
+    }
+
+    pub fn quad_count(&self) -> usize {
+        self.indices.len() / 6
     }
 
     pub fn shaders(&self) -> SceneShaders<'_> {
@@ -131,9 +143,9 @@ impl Assets {
 
     pub fn texture(&self) -> TextureData<'_> {
         TextureData {
-            width: self.texture_width,
-            height: self.texture_height,
-            pixels: &self.texture_pixels,
+            width: self.atlas.get_width(),
+            height: self.atlas.get_height(),
+            pixels: self.atlas.get_pixels(),
             filter: TextureFilter::Nearest,
             generate_mipmaps: false,
         }

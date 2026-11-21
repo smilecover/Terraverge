@@ -726,6 +726,25 @@ impl Render {
         self.particles_enabled = enabled;
     }
 
+    /// 用新网格替换世界几何。
+    ///
+    /// 先等待设备空闲，确保命令缓冲不再引用旧缓冲，再创建新缓冲并销毁旧缓冲。
+    /// 创建失败时保留旧网格，渲染循环仍可继续。
+    pub fn update_mesh(&mut self, mesh: MeshData<'_>) -> Result<(), Box<dyn Error + Send + Sync>> {
+        unsafe { self.device.device_wait_idle()? };
+        let geometry = create_geometry(
+            &self.instance,
+            &self.device,
+            self.physical_device,
+            self.command_pool,
+            self.graphics_queue,
+            mesh,
+        )?;
+        let old_geometry = std::mem::replace(&mut self.geometry, geometry);
+        old_geometry.destroy(&self.device);
+        Ok(())
+    }
+
     /// 窗口尺寸变化时记录新尺寸，实际重建放在下一次绘制，避免连续 resize 时反复重建。
     pub fn resize(&mut self, width: u32, height: u32) {
         self.window_width = width;

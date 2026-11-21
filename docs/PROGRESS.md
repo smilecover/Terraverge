@@ -1,6 +1,6 @@
 # 移植进度
 
-> 最后更新：2026-11-21（里程碑 M0 完成）
+> 最后更新：2026-11-21（M0 完成；M1 主体完成；M2 cutout/半透明与网格热更新部分完成）
 >
 > 规则：只有同时满足 [PORTING.md](PORTING.md) 第 12 节“完成定义”的类才标记
 > 为“完整”；其余标记“部分”并写明缺口。**不要**把能编译当成已移植。
@@ -20,8 +20,8 @@
 | `net/minecraft/world/level/block`（顶层类） | 330 |
 | `net/minecraft/core` | 123 |
 
-当前 Rust 移植层：88 个 `.rs` 文件（含 `mod.rs`），约 45 个有实际行为的类。
-方块注册 7 / 330 个方块类。
+当前 Rust 移植层：107 个 `.rs` 文件（含 `mod.rs`），约 60 个有实际行为的类。
+方块注册 9 / 330 个方块类。单元测试 66 个。
 
 ## 2. 已移植类
 
@@ -43,6 +43,10 @@
 | `net/minecraft/core/registries/BuiltInRegistries` | `core/registries/builtin_registries.rs` | 🟡 | 仅 BLOCK |
 | `net/minecraft/util/Mth` | `util/mth.rs` | 🟡 | 已移植数学/打包所需函数 |
 | `net/minecraft/util/StrictJsonParser` 等价物 | `util/json.rs` | ✅ | 自研严格 JSON，替代 Gson |
+| `util/RandomSource` + `BitRandomSource` | `util/random/random_source.rs` | ✅ | 含 `nextInt(bound)` 拒绝采样 |
+| `world/level/levelgen/LegacyRandomSource` | `levelgen/legacy_random_source.rs` | ✅ | 与 `java.util.Random` 逐位一致，JDK 校准 |
+| `util/random/Weighted` / `WeightedList` | `util/random/weighted.rs` | ✅ | 累积权重选择 |
+| `world/level/block/state/properties/BlockStateProperties` | 同名模块 | 🟡 | 仅 DISTANCE/PERSISTENT/WATERLOGGED 等首批常量 |
 | `net/minecraft/server/packs/resources/ResourceManager` | `server/packs/resources/mod.rs` | 🟡 | 单目录资源包；无 zip/多包/重载 |
 
 ### 世界与方块
@@ -53,11 +57,15 @@
 | `world/phys/AABB` | `world/phys/aabb.rs` | 🟡 | 碰撞盒核心；无射线/遮挡形状 |
 | `world/level/ChunkPos` | `world/level/chunk_pos.rs` | ✅ | 打包、区块边界 |
 | `world/level/block/Block` | `world/level/block/block.rs` | 🟡 | 注册/默认状态/渲染形状/碰撞；行为方法未移植 |
-| `world/level/block/Blocks` | `world/level/block/blocks.rs` | 🟡 | 仅 AIR/STONE/GRASS_BLOCK/DIRT/COBBLESTONE/BEDROCK/OAK_PLANKS |
+| `world/level/block/Blocks` | `world/level/block/blocks.rs` | 🟡 | AIR/STONE/GRASS_BLOCK/DIRT/COBBLESTONE/BEDROCK/OAK_PLANKS/OAK_LEAVES/GLASS |
 | `world/level/block/AirBlock` | `air_block.rs` | 🟡 | 渲染形状正确；其余继承行为未移植 |
 | `world/level/block/SnowyBlock` | `snowy_block.rs` | 🟡 | `SNOWY` 属性正确；随机刻未移植 |
 | `world/level/block/SpreadingSnowyBlock` | `spreading_snowy_block.rs` | 🟠 | 类型/状态；传播行为待光照 |
 | `world/level/block/GrassBlock` | `grass_block.rs` | 🟠 | 状态正确；骨粉/传播未移植 |
+| `world/level/block/LeavesBlock` | `leaves_block.rs` | 🟡 | distance/persistent/waterlogged 完整；腐烂/音效未移植 |
+| `world/level/block/TintedParticleLeavesBlock` | `tinted_particle_leaves_block.rs` | 🟠 | 构造/状态；粒子未移植 |
+| `world/level/block/TransparentBlock`/`HalfTransparentBlock` | `transparent_block.rs` | 🟡 | noOcclusion + 相邻同种跳过；光照语义未移植 |
+| `client/color/block/BlockColors` | `client/color/block/block_colors.rs` | 🟡 | 固定草色/树叶色；无生物群系/注册 API |
 | `block/state/BlockBehaviour$Properties` | `state/block_behaviour.rs` | 🟡 | 常用建造者字段；部分链式方法为 no-op |
 | `block/state/BlockState` | `state/block_state.rs` | 🟡 | 身份/属性/形状查询；无全局状态表 ID |
 | `block/state/StateDefinition` | `state/state_definition.rs` | 🟡 | 笛卡尔展开/选择器；无邻居缓存/编解码 |
@@ -82,19 +90,23 @@
 | `.../cuboid/CuboidModel` | `.../cuboid/cuboid_model.rs` | 🟡 | 元素/贴图槽/父；display 忽略 |
 | `.../cuboid/CuboidModelElement` | `.../cuboid/cuboid_model_element.rs` | 🟡 | 解析完整；元素旋转未应用 |
 | `.../cuboid/CuboidFace` | `.../cuboid/cuboid_face.rs` | ✅ | UV/旋转/tint/cull |
-| `.../cuboid/CuboidRotation` | `.../cuboid/cuboid_rotation.rs` | 🟡 | 仅解析 |
-| `.../cuboid/UnbakedCuboidGeometry` | `.../cuboid/cuboid_model.rs` | 🟡 | 面轴剔除；元素旋转未应用 |
-| `.../cuboid/FaceBakery` | `.../cuboid/face_bakery.rs` | 🟡 | 顶点/UV/默认 UV/y 变体旋转 |
+| `.../cuboid/CuboidRotation` | `.../cuboid/cuboid_rotation.rs` | ✅ | 单轴/欧拉角/rescale |
+| `.../cuboid/UnbakedCuboidGeometry` | `.../cuboid/cuboid_model.rs` | ✅ | 面轴剔除 + 元素旋转 |
+| `.../cuboid/FaceBakery` | `.../cuboid/face_bakery.rs` | 🟡 | 顶点/UV/uvlock/x-y-z/元素旋转；不重排顶点 |
+| `core/BlockMath` | `core/block_math.rs` | ✅ | UV 朝向补偿 |
 | `.../geometry/BakedQuad` | `.../geometry/baked_quad.rs` | 🟡 | 未压缩顶点/UV；无材质信息互化 |
-| `.../sprite/TextureSlots` | `.../sprite/texture_slots.rs` | 🟡 | 合并/别名解析；无 Data 编解码 |
-| `renderer/block/dispatch/BlockStateModelDispatcher` | `renderer/block/dispatch/` | 🟡 | variants；无 multipart |
-| `renderer/block/dispatch/Variant` | 同上 | 🟡 | 字段完整；权重随机未实现 |
+| `.../sprite/Material` | `.../sprite/material.rs` | ✅ | 字符串/对象两种形式、`force_translucent` |
+| `.../sprite/TextureSlots` | `.../sprite/texture_slots.rs` | 🟡 | 合并/别名/Material；无 Data 编解码 |
+| `renderer/block/dispatch/BlockStateModelDispatcher` | `renderer/block/dispatch/` | ✅ | variants + multipart + 加权选择 |
+| `renderer/block/dispatch/multipart/*` | `dispatch/multipart/` | ✅ | 字符串/AND/OR 条件树 |
+| `renderer/block/dispatch/Variant` | 同上 | ✅ | x/y/z、uvlock、weight |
+| `renderer/block/dispatch/WeightedVariants` | `SectionCompiler` 选择阶段 | ✅ | 位置种子 + Java LCG |
 | `renderer/texture/SpriteContents` | `renderer/texture/sprite_contents.rs` | 🟡 | PNG/缺失贴图；无动画 |
 | `renderer/texture/SpriteLoader` | `renderer/texture/sprite_loader.rs` | 🟡 | 单包同步加载 |
 | `renderer/texture/Stitcher` | `renderer/texture/stitcher.rs` | 🟠 | 固定单元格布局，未实现原装箱算法 |
 | `renderer/texture/TextureAtlas` | `renderer/texture/texture_atlas.rs` | 🟡 | CPU 合成/UV；无 GPU 管理 |
 | `renderer/texture/TextureAtlasSprite` | `renderer/texture/texture_atlas_sprite.rs` | ✅ | UV 映射 |
-| `renderer/chunk/SectionCompiler` | `renderer/chunk/section_compiler.rs` | 🟡 | 单层不透明网格；无分层/异步 |
+| `renderer/chunk/SectionCompiler` | `renderer/chunk/section_compiler.rs` | 🟡 | 单 pass 网格 + 加权/multipart 选择；无分层/异步 |
 | （新增边界类型） | `renderer/chunk/render_mesh.rs` | — | 与 GPU 解耦的顶点/索引 |
 
 ### 引擎侧（非 Java 对应）
@@ -110,14 +122,15 @@
 | 格式 | 状态 |
 | --- | --- |
 | `blockstates/*.json` variants | 🟡 支持；multipart 未实现 |
-| 加权变体 | 🟡 取第一个，未随机 |
+| `multipart`（字符串/AND/OR 条件） | ✅ |
+| 加权变体 | ✅ 位置种子 + Java LCG |
 | 模型 `parent` 链 | ✅ |
 | 模型 `elements`/`faces`/`uv`/`cullface`/`tintindex` | ✅ |
 | 面 UV 旋转 0/90/180/270 | ✅ |
-| 变体 `y` 旋转 | ✅ |
-| 变体 `x` 旋转 | ❌ 明确报错 |
-| 元素 `rotation` | ❌ 解析后报错 |
-| `uvlock` | ❌ 忽略 |
+| 变体 `x/y/z` 旋转 | ✅ |
+| 元素 `rotation`（单轴/欧拉/rescale） | ✅ |
+| `uvlock` | ✅ |
+| 贴图 `Material` 对象 / `force_translucent` | ✅ 解析与标记；未用于分层 |
 | `ambientocclusion` | 🟡 解析，未参与顶点 AO |
 | 贴图 `.mcmeta` 动画 | ❌ |
 | PNG | ✅（`image`，仅 png feature） |
@@ -129,14 +142,16 @@
 
 ## 4. 已知渲染偏差
 
-- 草色固定，不随生物群系变化；
+- 草色/树叶色固定，不随生物群系变化；
 - 无光照/天空光/方块光，明暗只来自固定面向系数；
-- 无透明/裁剪分层，树叶、玻璃、水等尚不可用（这些方块也尚未注册）；
+- 透明是单 pass alpha 混合：没有 solid/cutout/translucent 分层，也没有半透明面排序；
+- 玻璃相邻同种面已跳过；树叶 cutout 依赖 shader `discard`；
 - 无 mipmap、无各向异性；远处高频纹理会有闪烁；
 - 图集无 padding，理论上有跨 sprite 渗色风险；
 - 背面剔除关闭；
 - 无雾、无天空盒/太阳/云；
-- 无 HUD、准星、字体、物品栏。
+- 无 HUD、准星、字体、物品栏；
+- 破坏/放置是无物品栏调试交互，网格全量重建。
 
 ## 5. 路线图
 
@@ -144,26 +159,28 @@
 
 真实资源 → 模型 → 图集 → 网格 → Vulkan；第一人称移动与碰撞。
 
-### M1 — 资源/模型完整性
+### M1 — 资源/模型完整性（主体完成）
 
-- `multipart` 与条件模型；
-- 加权变体随机；
-- 变体 `x` 旋转、元素 `rotation`、`uvlock`；
-- 动画贴图与 `.mcmeta`；
-- 图集 padding、mip 策略与渲染回归测试；
-- zip/jar 资源包与多包优先级；
-- 扩展方块类到常用完整立方体方块（石类、羊毛、木板等），
-  验证通用模型路径。
+- ✅ `multipart` 与条件模型；
+- ✅ 加权变体随机（位置种子 + Java LCG）；
+- ✅ 变体 `x/y/z` 旋转、元素 `rotation`、`uvlock`；
+- ✅ 贴图 `Material` 对象与 `force_translucent` 标记；
+- ⬜ 动画贴图与 `.mcmeta`；
+- ⬜ 图集 padding、mip 策略与渲染回归测试；
+- ⬜ zip/jar 资源包与多包优先级；
+- 🟡 扩展方块类：已加入树叶/玻璃，仍需石类、羊毛、木板等。
 
-### M2 — 世界与区块
+### M2 — 世界与区块（进行中）
 
-- 按方块类型区分 solid/cutout/translucent 图层；
-- 区块脏标记与同步/异步重建；
-- 视锥剔除、按区块绘制；
-- 高度图、天空光/方块光、光照传播；
-- 生物群系与草地/树叶着色；
-- 流体、方块更新、刻调度；
-- 完整 `FlatLevelGeneratorSettings`。
+- 🟡 cutout（shader discard）与半透明（alpha 混合）已可用；
+- ⬜ solid/cutout/translucent 分层与半透明面排序；
+- 🟡 网格热更新（全量重建）已接入破坏/放置；
+- ⬜ 区块脏标记与同步/异步重建；
+- ⬜ 视锥剔除、按区块绘制；
+- ⬜ 高度图、天空光/方块光、光照传播；
+- 🟡 固定草色/树叶色，生物群系着色未实现；
+- ⬜ 流体、方块更新、刻调度；
+- ⬜ 完整 `FlatLevelGeneratorSettings`。
 
 ### M3 — 交互与实体
 

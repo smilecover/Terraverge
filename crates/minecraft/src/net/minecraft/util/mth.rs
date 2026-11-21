@@ -15,6 +15,21 @@ impl Mth {
         x * x
     }
 
+    /// 对应 `Mth.getSeed(Vec3i)` / `getSeed(x,y,z)`。
+    /// 方块模型加权变体与随机朝向使用这个位置种子。
+    pub const fn get_seed_xyz(x: i32, y: i32, z: i32) -> i64 {
+        let seed = (x as i64) * 3_129_871 ^ (z as i64) * 116_129_781 ^ (y as i64);
+        let seed = seed
+            .wrapping_mul(seed)
+            .wrapping_mul(42_317_861)
+            .wrapping_add(seed.wrapping_mul(11));
+        seed >> 16
+    }
+
+    pub const fn get_seed(pos: crate::net::minecraft::core::Vec3i) -> i64 {
+        Self::get_seed_xyz(pos.get_x(), pos.get_y(), pos.get_z())
+    }
+
     pub fn floor(x: f64) -> i32 {
         x.floor() as i32
     }

@@ -12,13 +12,17 @@ pub struct BakedQuad {
     pub positions: [[f32; 3]; 4],
     /// 贴图坐标，范围 0..16（与模型 JSON 的 uv 单位一致）。
     pub uvs: [[f32; 2]; 4],
-    /// 面朝向，用于光照明暗。
+    /// 面的最终世界朝向（由烘焙后的顶点法线推导）。
     pub direction: Direction,
+    /// 明暗使用的朝向；模型元素可覆盖它。
+    pub shade_direction: Direction,
     /// 非空时与相邻方块同向的面可以剔除。
     pub cull_face: Option<Direction>,
     /// -1 表示无着色；>=0 时由生物群系/方块着色器决定颜色。
     pub tint_index: i32,
     pub sprite: Identifier,
+    /// 对应 `Material.force_translucent`：材质声明必须走半透明层。
+    pub force_translucent: bool,
 }
 
 #[derive(Clone, Debug, Default)]

@@ -5,6 +5,7 @@
 //! 相机的基础链路。
 
 pub mod camera;
+pub mod color;
 pub mod input;
 pub mod multiplayer;
 pub mod player;

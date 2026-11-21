@@ -101,9 +101,11 @@ stone.json
 | `cullface` | 支持，烘焙时旋转 |
 | `tintindex` | 支持，草色 tint |
 | `rotation`（UV 象限） | 支持 0/90/180/270 |
-| 元素 `rotation` | 只解析，烘焙时明确报错（未实现） |
-| `shade_direction_override` | 只解析（未应用） |
-| `light_emission` | 只解析（未应用） |
+| 元素 `rotation`（axis+angle / xyz / rescale） | ✅ |
+| 变体 `x/y/z` 旋转 | ✅ |
+| `uvlock` | ✅（BlockMath 面向补偿） |
+| `shade_direction_override` | ✅ 作用于明暗 |
+| `light_emission` | 只解析（光照系统未移植） |
 
 ### UV 与顶点顺序
 
@@ -143,21 +145,23 @@ z' = -(x-0.5)sinθ + (z-0.5)cosθ + 0.5
 
 ## 4. 贴图槽与贴图解析
 
-`textures` 是槽位映射，值可以继续以 `#` 引用其他槽位：
+`textures` 是槽位映射，值可以是引用、字符串或完整 `Material` 对象：
 
 ```json
 "textures": {
   "particle": "#side",
-  "down": "#bottom",
-  "side": "minecraft:block/grass_block_side"
+  "side": "minecraft:block/grass_block_side",
+  "glass": {"sprite": "minecraft:block/glass", "force_translucent": true}
 }
 ```
 
 解析规则：
 
-- `#name`：查槽位 `name`，继续追踪，最多 16 层；
-- 非 `#` 值：交给 `Identifier::parse`（无命名空间时默认 `minecraft`）；
-- 面引用的最终贴图标识符决定图集中的 sprite。
+- `#name`：查槽位，继续追踪，最多 16 层；
+- 非 `#` 字符串：对应的 `Material` 简写（`force_translucent=false`）；
+- 对象：`{"sprite": Identifier, "force_translucent": bool}`；
+- 面引用的最终 `Material` 决定图集 sprite 与半透明标记；
+- BakedQuad 保存 `force_translucent`，后续分层渲染会使用（当前单 pass 混合）。
 
 ## 5. 图集
 
@@ -174,8 +178,9 @@ SpriteLoader::load_atlas(ids)
 
 - 单元格边长 = 所有 sprite 的最大宽/高；
 - 列数 = `ceil(sqrt(n))`，行数 = `ceil(n/列数)`；
-- 本次启动：9 张 16×16 贴图 → 48×48 图集；
-- sprite UV 按其实际宽高计算，非正方形贴图也能正确采样。
+- 本次启动：11 张 16×16 贴图（含树叶/玻璃）→ 64×48 图集；
+- sprite UV 按其实际宽高计算，非正方形贴图也能正确采样；
+- 烘焙后的面 UV 在 0..1 范围内，网格构建时再映射进 sprite 的 UV 区间。
 
 已知限制：
 
@@ -186,29 +191,39 @@ SpriteLoader::load_atlas(ids)
 
 ## 6. 着色
 
-- 草方块顶部 `tintindex=0` 使用固定草色
-  `(0.5686, 0.7412, 0.3490)`；26.3 的生物群系着色器尚未移植。
+- `BlockColors` 提供固定默认色：草方块 `(0.5686, 0.7412, 0.3490)`、
+  橡木树叶 `(0.2824, 0.7098, 0.0941)`；生物群系着色尚未移植。
 - 面向明暗系数（Minecraft 固定值）：UP 1.0、DOWN 0.5、
-  NORTH/SOUTH 0.8、WEST/EAST 0.6。
+  NORTH/SOUTH 0.8、WEST/EAST 0.6；`shade_direction_override` 可覆盖。
 - 最终顶点色 = tint × shade；片元着色器再乘以图集采样值。
-- 草方块侧面的 overlay 与底面 quad 重合，深度测试 `LESS` 会保留先绘制
-  的底层；overlay 的透明混合管线尚未实现。
+- 片元 alpha < 0.1 时 `discard`，实现树叶 cutout；
+- 管线启用 alpha 混合，玻璃等半透明贴图可透出后方地形。
 
-## 7. 网格构建
+## 7. 透明与排序
+
+- `Block::is_solid_render` 为真才剔除相邻面；树叶/玻璃 `noOcclusion`，
+  相邻面保留；
+- 玻璃类相邻同种方块按 `skip_rendering_same_block` 跳过面；
+- 当前是单 pass 混合 + 深度写入，没有按 solid/cutout/translucent 分层，
+  也没有半透明面排序。复杂玻璃/水场景会有排序伪影（见 DECISIONS ADR-013）。
+
+## 8. 网格构建
 
 `SectionCompiler::compile`：
 
 - 遍历所有已加载区块的非空段；
 - 跳过空气与 `RenderShape::INVISIBLE`；
-- 通过 `BlockState -> BakedModel` 查表；
-- 有 `cullface` 的面，若邻居“非空气且可碰撞”则跳过；
+- 通过 `BlockState -> BakedStateModel` 查表；
+- 普通 variants 用 `Mth.getSeed(pos)` 抽取加权候选；multipart 先抽 long，
+  再对每个 part 重置随机源（与 Java `ModelBlockRenderer` 一致）；
+- 有 `cullface` 的面，若邻居为“完整遮挡形状”则跳过；
 - 输出世界坐标顶点（方块坐标 + 0..1 局部坐标）；
 - 索引为两个三角形 `[0,1,2, 0,2,3]`。
 
 本次启动：81 区块 → 177,408 顶点 / 44,352 四边形。底面与地图外缘的
 侧面也会绘制，因此四边形数明显多于 81×256 个顶面。
 
-## 8. 资源自检
+## 9. 资源自检
 
 ```bash
 cargo test -p minecraft

@@ -73,9 +73,11 @@ crates/minecraft/src/net/minecraft/
    - `ResourceManager::new(root)`；
    - `LanguageManager::load("en_us")`；
    - `BlockModelSet::load`
-     - `BlockStateModelLoader` 读取全部 `blockstates/*.json`；
+     - `BlockStateModelLoader` 读取全部 `blockstates/*.json`，
+       得到 variants/multipart 的加权候选集合；
      - `ModelBakery` 解析 `models/**/*.json` 并沿 `parent` 合并；
-     - 为每个 `BlockState` 烘焙 `BakedQuad`，汇总贴图标识符；
+     - 为每个候选变体烘焙 `BakedQuad`（变体/元素旋转、uvlock、Material），
+       汇总贴图标识符；
    - `SpriteLoader::load_atlas`：PNG → Stitcher → RGBA8 图集；
    - `ClientLevel::new_flat(4, 0)` 生成 9×9 区块；
    - `SectionCompiler::compile` 合成世界网格；
@@ -91,6 +93,7 @@ winit 键鼠事件
    │  (window::WindowEvent)
    ▼
 Game::window_event  ── 更新 keys / 旋转视角 / Esc 退出
+   │                   左键破坏 / 右键放置 -> 重建网格 -> Render::update_mesh
    │
    ▼ RedrawRequested
 Game: 计算 dt (<= 50ms)
@@ -158,12 +161,17 @@ y=-61  grass_block
 - 着色器：Slang 运行期编译；片元 = 纹理采样 × 顶点色。
 - 图集采样：`NEAREST`、`CLAMP_TO_EDGE`、不生成 mipmap，避免像素画糊化与
   跨 sprite 渗色。
+- 颜色混合：标准 alpha 混合；片元 alpha < 0.1 时 `discard`（树叶 cutout）。
+- 遮拦剔除：只有 `is_solid_render` 的邻居才剔除面；玻璃类相邻同种方块
+  额外跳过。
 - 背面剔除当前为 `NONE`：
   - 方块面已在 CPU 侧按邻居剔除；
   - 关闭 CPU 绕序与 Vulkan 正面定义的耦合，待渲染回归测试稳定后再开 `BACK`。
 - 清屏色：`(0.4706, 0.6549, 1.0)`，Minecraft 默认天空色。
 - 教程的 compute 粒子系统保留在引擎里，但 Minecraft 模式通过
   `Render::set_particles_enabled(false)` 关闭绘制。
+- `Render::update_mesh` 在设备空闲后替换顶点/索引缓冲，用于方块编辑后的
+  网格热更新。
 
 ## 8. 资源与图集
 
@@ -180,7 +188,8 @@ y=-61  grass_block
 - 无 GUI/字体/准星/物品栏/菜单；
 - 无音效、实体、方块实体、光照、刻调度、方块更新、流体；
 - 无网络、多人、存档、NBT；
-- 无区块异步编译与按需加载（网格只在启动时构建一次）；
-- 无透明/裁剪（cutout/translucent）分层渲染；
-- 无生物群系着色，草色固定为 `(0.5686, 0.7412, 0.3490)`；
-- 无动画贴图（`.mcmeta`）与资源包叠加。
+- 网格仍是全量重建，无区块脏标记/异步编译/视锥剔除；
+- 透明是单 pass alpha 混合，无 solid/cutout/translucent 分层与排序；
+- 无生物群系着色，草色/树叶色固定；
+- 无动画贴图（`.mcmeta`）与资源包叠加；
+- 破坏/放置是无物品栏调试交互，尚未接入 `MultiPlayerGameMode`。

@@ -16,4 +16,5 @@
 //! 这个 crate 不依赖渲染后端和窗口系统，保持与 Java 侧 `client` 以下
 //! 类库同样的纯净度；真正的 GPU 后端在 `ren_vulkan`，由 `game` 层粘合。
 
+pub mod com;
 pub mod net;

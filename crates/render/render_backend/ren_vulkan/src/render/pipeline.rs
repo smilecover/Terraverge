@@ -99,14 +99,15 @@ pub(super) fn create_graphics_pipeline(
         .sample_shading_enable(false)
         .rasterization_samples(sample_count);
 
-    // 颜色混合：不混合，直接把片元颜色写到附件；但必须允许写 RGBA 四个通道。
+    // 颜色混合：标准 alpha 混合。不透明方块 alpha=1，结果与直接覆盖一致；
+    // 玻璃/水等半透明贴图按来源 alpha 混合。M2 尚未做逐层排序，深度写入保持开启。
     let color_blend_attachment = vk::PipelineColorBlendAttachmentState::default()
-        .blend_enable(false)
-        .src_color_blend_factor(vk::BlendFactor::ONE)
-        .dst_color_blend_factor(vk::BlendFactor::ZERO)
+        .blend_enable(true)
+        .src_color_blend_factor(vk::BlendFactor::SRC_ALPHA)
+        .dst_color_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
         .color_blend_op(vk::BlendOp::ADD)
         .src_alpha_blend_factor(vk::BlendFactor::ONE)
-        .dst_alpha_blend_factor(vk::BlendFactor::ZERO)
+        .dst_alpha_blend_factor(vk::BlendFactor::ONE_MINUS_SRC_ALPHA)
         .alpha_blend_op(vk::BlendOp::ADD)
         .color_write_mask(vk::ColorComponentFlags::RGBA);
     let color_blend_attachments = [color_blend_attachment];

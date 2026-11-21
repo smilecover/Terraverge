@@ -27,6 +27,18 @@ impl Scene {
         Self { player, camera }
     }
 
+    pub fn eye_position(&self) -> Vec3 {
+        self.player.get_eye_position()
+    }
+
+    pub fn look_vector(&self) -> Vec3 {
+        self.camera.get_look_vector()
+    }
+
+    pub fn player(&self) -> &LocalPlayer {
+        &self.player
+    }
+
     pub fn update(&mut self, level: &Level, input: &Input, dt: f32) {
         self.player.tick(level, input, dt);
         self.camera.set_position(self.player.get_eye_position());

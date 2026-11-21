@@ -1,11 +1,12 @@
 //! 对应 `net/minecraft/client/resources/model/BlockStateModelLoader.java`。
 //!
 //! 遍历内置方块注册表，读取 `blockstates/<路径>.json`，为每个方块状态
-//! 选出一个变体。26.3 的多资源包栈与异步加载在此简化为单目录、同步。
+//! 选出 `variants` 或 `multipart` 模型集合。26.3 的多资源包栈与异步加载
+//! 在此简化为单目录、同步。
 
 use super::model_error::ModelError;
 use crate::net::minecraft::client::renderer::block::dispatch::{
-    BlockStateModelDispatcher, Variant,
+    BlockModelSelection, BlockStateModelDispatcher,
 };
 use crate::net::minecraft::core::registries::builtin_registries;
 use crate::net::minecraft::server::packs::resources::ResourceManager;
@@ -16,10 +17,10 @@ use std::collections::HashMap;
 pub struct BlockStateModelLoader;
 
 impl BlockStateModelLoader {
-    /// 返回 `方块状态 -> 变体` 映射。找不到定义时会明确报错。
+    /// 返回 `方块状态 -> 模型选择` 映射。找不到定义时会明确报错。
     pub fn load(
         resource_manager: &ResourceManager,
-    ) -> Result<HashMap<BlockState, Variant>, ModelError> {
+    ) -> Result<HashMap<BlockState, BlockModelSelection>, ModelError> {
         let mut result = HashMap::new();
 
         for block in builtin_registries::block().iter() {
@@ -36,13 +37,21 @@ impl BlockStateModelLoader {
 
             let definition = block.get_state_definition();
             for state in definition.get_possible_states() {
-                let variant = dispatcher.select(definition, *state).ok_or_else(|| {
-                    ModelError::new(format!(
-                        "方块 {block_id} 的状态 {} 没有匹配的变体",
-                        state.property_key()
-                    ))
-                })?;
-                result.insert(*state, variant);
+                let selection = dispatcher
+                    .select(definition, *state)
+                    .map_err(|err| {
+                        ModelError::new(format!(
+                            "方块 {block_id} 的状态 {} 选择模型失败: {err}",
+                            state.property_key()
+                        ))
+                    })?
+                    .ok_or_else(|| {
+                        ModelError::new(format!(
+                            "方块 {block_id} 的状态 {} 没有匹配的变体",
+                            state.property_key()
+                        ))
+                    })?;
+                result.insert(*state, selection);
             }
         }
 

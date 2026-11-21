@@ -4,7 +4,9 @@
 //! 圆石、基岩、橡木木板。后续按 `docs/PROGRESS.md` 的清单继续补齐。
 
 use super::state::block_behaviour::Properties;
-use super::{AirBlock, Block, GrassBlock, MapColor, SoundType};
+use super::{
+    AirBlock, Block, GrassBlock, MapColor, SoundType, TintedParticleLeavesBlock, TransparentBlock,
+};
 use crate::net::minecraft::core::registries::Registry;
 use crate::net::minecraft::core::registries::builtin_registries;
 use crate::net::minecraft::resources::Identifier;
@@ -40,6 +42,14 @@ impl Blocks {
 
     pub fn oak_planks() -> &'static Block {
         block_by_path("oak_planks")
+    }
+
+    pub fn oak_leaves() -> &'static Block {
+        block_by_path("oak_leaves")
+    }
+
+    pub fn glass() -> &'static Block {
+        block_by_path("glass")
     }
 
     /// 构建并注册首批方块。由 `BuiltInRegistries::block()` 懒初始化调用。
@@ -104,6 +114,25 @@ impl Blocks {
                 .strength(2.0, 3.0)
                 .sound(SoundType::WOOD)
                 .ignited_by_lava(),
+        );
+        registry.register(
+            "minecraft:oak_leaves",
+            |properties| TintedParticleLeavesBlock::new(0.01, properties),
+            Properties::of()
+                .map_color(MapColor::PLANT)
+                .strength(0.2, 0.2)
+                .random_ticks()
+                .sound(SoundType::GRASS)
+                .no_occlusion()
+                .ignited_by_lava(),
+        );
+        registry.register(
+            "minecraft:glass",
+            TransparentBlock::new,
+            Properties::of()
+                .strength(0.3, 0.3)
+                .sound(SoundType::GLASS)
+                .no_occlusion(),
         );
 
         registry.build()

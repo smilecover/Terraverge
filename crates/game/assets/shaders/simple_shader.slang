@@ -63,5 +63,11 @@ float4 fs_main(VertexOutput input) : SV_Target
 {
     // 方块网格把“面向明暗 × 生物群系着色”预先乘进顶点色，
     // 图集只负责纹理本身。
-    return tex.Sample(texSampler, input.texCoord) * float4(input.color, 1.0);
+    float4 texel = tex.Sample(texSampler, input.texCoord);
+    // 树叶等 cutout 贴图依赖 alpha 测试；玻璃等半透明贴图由混合管线处理。
+    if (texel.a < 0.1)
+    {
+        discard;
+    }
+    return texel * float4(input.color, 1.0);
 }

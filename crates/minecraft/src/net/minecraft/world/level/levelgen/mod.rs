@@ -1,6 +1,9 @@
 //! `net.minecraft.world.level.levelgen` 包。
 
 pub mod flat;
+mod legacy_random_source;
+
+pub use legacy_random_source::LegacyRandomSource;
 
 use super::block::state::BlockState;
 use super::chunk::LevelChunk;

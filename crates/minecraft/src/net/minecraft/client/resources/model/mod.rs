@@ -8,5 +8,6 @@ pub mod cuboid;
 pub mod geometry;
 pub mod sprite;
 
+pub use geometry::BakedModel;
 pub use model_error::ModelError;
-pub use model_manager::{BlockModelSet, total_quad_count};
+pub use model_manager::{BakedPart, BakedStateModel, BlockModelSet, total_quad_count};

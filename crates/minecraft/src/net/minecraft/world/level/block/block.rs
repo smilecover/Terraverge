@@ -54,6 +54,17 @@ impl Block {
         self.properties.has_collision()
     }
 
+    /// 对应 `BlockState.isSolidRender()`：只有完整遮挡形状才算实心。
+    pub fn is_solid_render(&self, _state: BlockState) -> bool {
+        self.properties.can_occlude()
+    }
+
+    /// 对应 `Block.skipRendering(state, neighborState, direction)` 的同种方块规则。
+    pub fn skip_rendering(&self, neighbor_state: BlockState) -> bool {
+        self.properties.skips_rendering_same_block()
+            && neighbor_state.get_block_id() == self.get_block_id()
+    }
+
     pub fn can_be_replaced(&self) -> bool {
         self.properties.can_be_replaced()
     }

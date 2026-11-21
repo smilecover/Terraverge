@@ -14,17 +14,22 @@
 
 - 直接读取 26.3 解包资源：资源管理器、`en_us` 语言（8559 键）、
   方块状态/模型 JSON、PNG 图集；
-- 从真实 `blockstates`/`models` 烘焙首批 7 个方块的全部状态；
+- 从真实 `blockstates`/`models` 烘焙首批 9 个方块的全部状态；
+- 模型支持 `variants`、加权变体（按 `Mth.getSeed` + Java LCG 确定性抽取）、
+  `multipart` 条件树、x/y/z 变体旋转、元素旋转、面 UV 旋转与 `uvlock`，
+  以及 26.3 的 `Material` 对象（`force_translucent`）；
 - 81 个区块的平坦世界（`FlatLevelSource` 占位实现），44,352 个可见四边形；
-- Vulkan 渲染：最近邻采样图集、深度测试/MSAA、天空色清屏；
+- Vulkan 渲染：最近邻采样图集、深度测试/MSAA、天空色清屏、alpha 混合；
+- 树叶 cutout（alpha discard）与玻璃半透明已接入；
 - 第一人称玩家：鼠标视角、WASD、潜行、疾跑、跳跃、方块 AABB 碰撞；
-- 48 个单元测试覆盖数学、标识符、JSON、状态展开、模型烘焙、网格构建。
+- 临时调试交互：左键破坏、右键放置、网格热更新；
+- 66 个单元测试覆盖数学、标识符、JSON、随机数、状态展开、模型烘焙、网格构建。
 
 实测启动日志：
 
 ```text
 世界: 81 个区块，出生点 ((8.5, -60, 8.5)), 网格 177408 顶点 / 44352 四边形，
-图集 48x48 (9 张)，语言 8559 键
+图集 64x48 (11 张)，语言 8559 键
 发现设备："NVIDIA GeForce RTX 3050 Laptop GPU"，类型：DISCRETE_GPU
 窗口已创建: 1280x720
 ```
@@ -70,7 +75,10 @@ TERRAVERGE_CLIENT_ROOT=/path/to/extracted/client cargo run -p game
 | 空格 | 跳跃（着地时） |
 | 左/右 Shift | 潜行速度 |
 | 左/右 Ctrl + W | 疾跑 |
-| 左键点击窗口 | 重新锁定鼠标 |
+| 左键 | 破坏瞄准的方块 |
+| 右键 | 放置方块 |
+| 1 / 2 / 3 / 4 / 5 | 选择放置方块：石头 / 草方块 / 橡木木板 / 橡木树叶 / 玻璃 |
+| 左键点击窗口（未锁定时） | 重新锁定鼠标 |
 | Esc | 退出（暂停菜单尚未移植） |
 
 ## 工作区结构
@@ -107,6 +115,8 @@ Rust: crates/minecraft/src/net/minecraft/core/block_pos.rs
 - 当前只读取解包目录，不读 `.jar`/zip，不做资源包优先级与异步重载；
 - 世界生成是固定四层平地，仅用于贯通渲染链路，不代表 26.3 的完整
   `FlatLevelSource`/生物群系/结构系统；
+- 透明渲染是单次 pass + alpha 混合，尚未按 solid/cutout/translucent 分层排序；
+- 破坏/放置是无物品栏、无 `MultiPlayerGameMode` 的临时调试交互；
 - 尚无 GUI、字体、音效、多人网络、实体、光照、方块更新、区块异步编译；
 - 传送门、命令、配方、进度等更高层系统完全未开始。
 

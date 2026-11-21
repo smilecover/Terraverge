@@ -1,6 +1,5 @@
 //! 对应 `net/minecraft/client/resources/model/cuboid/CuboidModelElement.java`。
 
-use super::super::model_error::ModelError;
 use super::CuboidFace;
 use super::cuboid_rotation::CuboidRotation;
 use crate::net::minecraft::core::Direction;
@@ -58,10 +57,10 @@ impl CuboidModelElement {
         })
     }
 
-    pub fn has_rotation(&self) -> Option<ModelError> {
+    pub fn rotation_matrix(&self) -> Option<crate::com::math::Mat3> {
         self.rotation
             .as_ref()
-            .map(|_| ModelError::new("cuboid 元素旋转尚未移植（见 docs/PROGRESS.md）"))
+            .map(|rotation| rotation.transfer_matrix())
     }
 }
 

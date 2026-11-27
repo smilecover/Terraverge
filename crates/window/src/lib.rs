@@ -1,15 +1,15 @@
-mod app;
-mod context;
+mod game;
+mod game_windows;
 mod game_winit;
-mod window_config;
+mod windows_config;
 
-pub use app::{App, WindowEvent};
-pub use context::Context;
-pub use window_config::WindowConfig;
+pub use game::{Game, WindowEvent};
+pub use game_windows::GameWindows;
+pub use windows_config::WindowConfig;
 
-pub fn run<A: App>(app: A) -> Result<(), Box<dyn std::error::Error>> {
+pub fn run<A: Game>(game: A) -> Result<(), Box<dyn std::error::Error>> {
     let event_loop = winit::event_loop::EventLoop::new()?;
-    let mut runner = game_winit::Runner::new(app);
+    let mut runner = game_winit::Runner::new(game);
     event_loop.run_app(&mut runner)?;
     Ok(())
 }

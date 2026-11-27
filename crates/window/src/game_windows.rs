@@ -4,12 +4,12 @@ use winit::raw_window_handle::{
 };
 use winit::window::Window;
 
-pub struct Context<'a> {
+pub struct GameWindows<'a> {
     event_loop: &'a ActiveEventLoop,
     window: &'a Window,
 }
 
-impl<'a> Context<'a> {
+impl<'a> GameWindows<'a> {
     pub(crate) fn new(event_loop: &'a ActiveEventLoop, window: &'a Window) -> Self {
         Self { event_loop, window }
     }

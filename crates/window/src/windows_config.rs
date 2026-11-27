@@ -37,6 +37,6 @@ impl WindowConfig {
 
 impl Default for WindowConfig {
     fn default() -> Self {
-        Self::new("Terraverge", 0, 0)
+        Self::new("Terraverge", 1440, 810)
     }
 }

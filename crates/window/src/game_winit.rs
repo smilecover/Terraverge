@@ -1,6 +1,6 @@
-use crate::app::{App, WindowEvent};
-use crate::context::Context;
-use crate::window_config::WindowConfig;
+use crate::game::{Game, WindowEvent};
+use crate::game_windows::GameWindows;
+use crate::windows_config::WindowConfig;
 use winit::application::ApplicationHandler;
 use winit::dpi::LogicalSize;
 use winit::event::WindowEvent as WinitWindowEvent;
@@ -12,13 +12,13 @@ pub(crate) struct Runner<A> {
     window: Option<Window>,
 }
 
-impl<A: App> Runner<A> {
+impl<A: Game> Runner<A> {
     pub(crate) fn new(app: A) -> Self {
         Self { app, window: None }
     }
 }
 
-impl<A: App> ApplicationHandler for Runner<A> {
+impl<A: Game> ApplicationHandler for Runner<A> {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         if self.window.is_some() {
             return;
@@ -42,7 +42,7 @@ impl<A: App> ApplicationHandler for Runner<A> {
             }
         };
 
-        self.app.resumed(&Context::new(event_loop, &window));
+        self.app.resumed(&GameWindows::new(event_loop, &window));
         self.window = Some(window);
     }
 
@@ -59,18 +59,19 @@ impl<A: App> ApplicationHandler for Runner<A> {
             return;
         };
         self.app
-            .window_event(&Context::new(event_loop, window), event);
+            .window_event(&GameWindows::new(event_loop, window), event);
     }
 
     fn about_to_wait(&mut self, event_loop: &ActiveEventLoop) {
         if let Some(window) = self.window.as_ref() {
-            self.app.about_to_wait(&Context::new(event_loop, window));
+            self.app
+                .about_to_wait(&GameWindows::new(event_loop, window));
         }
     }
 
     fn exiting(&mut self, event_loop: &ActiveEventLoop) {
         if let Some(window) = self.window.as_ref() {
-            self.app.exiting(&Context::new(event_loop, window));
+            self.app.exiting(&GameWindows::new(event_loop, window));
         }
         self.window = None;
     }
